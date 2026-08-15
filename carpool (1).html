@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Carpool</title>
+
+  <!-- PWA & Add to Home Screen Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Carpool">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#f43f5e">
+
+  <!-- Standard Absolute Image Link for 100% Safari Support -->
+  <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f697.png">
+  <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f697.png">
+
+  <!-- Soft & Rounded Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400..800;1,400..800&family=Quicksand:wght@400..700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+  <style>
+    body, button, input, select, textarea {
+      font-family: 'Quicksand', 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { width: 3px; height: 3px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body id="app-body" class="bg-pink-50/50 text-slate-800 pb-4 min-h-screen select-none transition-colors duration-300">
+
+  <!-- Header Section -->
+  <header class="pt-3 pb-1 px-3 text-center max-w-xl mx-auto">
+    <div class="flex items-center justify-between px-1 mb-1">
+      <span id="current-user-badge" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white shadow-2xs border border-rose-200 text-rose-600 flex items-center gap-1 cursor-pointer" onclick="openModal('modal-identity')">
+        👤 身份: <strong id="display-user-role">请选择身份</strong> (点击设置)
+      </span>
+      <button onclick="openMyBookingsModal()" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white shadow-2xs border border-rose-200 text-rose-600 flex items-center gap-1 active:scale-95 transition">
+        📅 我的行程
+      </button>
+    </div>
+
+    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-800 mb-0.5">
+      Carpool Reservation
+    </h1>
+    <p class="text-[11px] sm:text-xs text-slate-500 font-bold">
+      5 seats per trip on workdays
+    </p>
+
+    <!-- 6 Icon Bar -->
+    <div class="flex items-center justify-center gap-1.5 sm:gap-2.5 mt-2 bg-white/90 backdrop-blur-md px-2 py-1 rounded-2xl shadow-2xs border border-slate-100/80">
+      <button onclick="openModal('modal-passengers')" class="p-1.5 rounded-xl hover:bg-slate-100 transition text-slate-600 active:scale-95" title="乘客列表">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+      </button>
+      <button onclick="openModal('modal-driverOff')" class="p-1.5 rounded-xl hover:bg-slate-100 transition text-slate-600 active:scale-95" title="司机假期">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+      </button>
+      <button onclick="openModal('modal-reminders')" class="p-1.5 rounded-xl hover:bg-slate-100 transition text-slate-600 active:scale-95" title="提醒设置">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+      </button>
+      <button id="filter-icon-btn" onclick="openModal('modal-filter')" class="p-1.5 rounded-xl hover:bg-slate-100 transition text-slate-600 active:scale-95" title="乘客筛选">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+      </button>
+      <button onclick="openModal('modal-search')" class="p-1.5 rounded-xl hover:bg-slate-100 transition text-slate-600 active:scale-95" title="搜索预约">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      </button>
+      <button onclick="openModal('modal-theme')" class="p-1.5 rounded-xl hover:bg-slate-100 transition text-slate-600 active:scale-95" title="主题颜色">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-3xl mx-auto px-1.5 sm:px-3 mt-1">
+    <!-- Month Navigation Bar -->
+    <div class="flex flex-col items-center gap-1.5 mb-2">
+      <div class="flex items-center justify-between w-full max-w-xs sm:max-w-sm px-1">
+        <button onclick="changeMonth(-1)" class="p-1.5 rounded-xl bg-white shadow-2xs border border-slate-100 text-slate-600 hover:bg-slate-50 active:scale-90 transition shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+        </button>
+        <h2 id="current-month-label" class="text-base sm:text-lg font-bold text-slate-800 tracking-wide text-center">
+          Loading...
+        </h2>
+        <button onclick="changeMonth(1)" class="p-1.5 rounded-xl bg-white shadow-2xs border border-slate-100 text-slate-600 hover:bg-slate-50 active:scale-90 transition shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+        </button>
+      </div>
+
+      <!-- Multi-Day Controls -->
+      <div id="multi-day-controls-container" class="flex flex-col items-center gap-1">
+        <button id="btn-start-multi" onclick="toggleMultiSelectMode(true)" class="flex items-center gap-1.5 bg-white px-3.5 py-1 rounded-xl shadow-2xs border border-rose-200 text-xs font-bold theme-text hover:bg-rose-50 transition active:scale-95">
+          <svg class="w-3.5 h-3.5 theme-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+          <span>Multi-Day Booking</span>
+        </button>
+
+        <div id="multi-selecting-actions" class="hidden flex flex-col items-center gap-1">
+          <button onclick="toggleMultiSelectMode(false)" class="flex items-center gap-1 bg-rose-200 text-rose-700 px-3 py-1 rounded-xl text-[11px] font-bold hover:bg-rose-300 transition active:scale-95">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <span>Cancel Multi-Day</span>
+          </button>
+          <button id="btn-book-selected-days" onclick="openMultiBookingConfirmModal()" class="hidden flex items-center gap-1.5 theme-btn border text-white px-4 py-1 rounded-xl shadow-xs text-xs font-bold transition active:scale-95 animate-bounce">
+            <span id="multi-days-count-label">Book 0 Days</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Alert Banner -->
+    <div id="filter-banner" class="hidden mb-2 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-xl px-2 py-1 flex items-center justify-between text-xs text-amber-800">
+      <span class="flex items-center gap-1 font-semibold">
+        只筛选: <strong id="filter-passenger-name">All</strong>
+      </span>
+      <button onclick="clearFilter()" class="underline font-bold hover:text-amber-950">清除</button>
+    </div>
+
+    <!-- Calendar Grid Card -->
+    <div class="bg-white/80 backdrop-blur-md rounded-2xl p-1.5 sm:p-2.5 shadow-2xs border border-rose-100/60">
+      <div class="grid grid-cols-[0.7fr_1fr_1fr_1fr_1fr_1fr_0.7fr] gap-0.5 text-center text-[11px] font-bold theme-text mb-1">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+      </div>
+
+      <!-- Days Grid -->
+      <div id="calendar-days-grid" class="grid grid-cols-[0.7fr_1fr_1fr_1fr_1fr_1fr_0.7fr] gap-1 sm:gap-1">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Legend Footer Bar -->
+      <div class="mt-2 pt-2 border-t border-rose-100/60 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-slate-500 font-bold">
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-white border border-slate-200 inline-block"></span><span>Available</span></div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-amber-100 border border-amber-300 inline-block"></span><span>Out Full</span></div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-sky-100 border border-sky-300 inline-block"></span><span>Ret Full</span></div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-rose-200 border border-rose-300 inline-block"></span><span>Fully Booked</span></div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-slate-100 border border-slate-200 inline-block"></span><span>Driver Off</span></div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs theme-badge-selected inline-block"></span><span>Selected</span></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= MODALS ================= -->
+  <!-- 身份选择与绑定弹窗 -->
+  <div id="modal-identity" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800">设置本机身份 (Select Role)</h3>
+        <button onclick="closeModal('modal-identity')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-2">
+        <button id="btn-role-driver" onclick="setUserRole('Driver')" class="w-full p-3 rounded-2xl border transition text-sm font-bold flex items-center justify-between">
+          <span>🚗 我是司机 (Driver)</span>
+          <span id="check-driver" class="hidden">✓</span>
+        </button>
+        <div class="text-[11px] font-bold text-slate-400 pt-1">或者选择你的乘客名字 (Passenger Name)：</div>
+        <div id="identity-passengers-grid" class="grid grid-cols-2 gap-1.5 pt-1">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 司机专属每日行程提醒弹窗（含一键复制群文案功能） -->
+  <div id="modal-driver-today" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl border border-rose-100">
+      <div class="text-center mb-3">
+        <span class="text-2xl">🚗</span>
+        <h3 id="driver-popup-date-title" class="text-lg font-extrabold text-slate-800 mt-1">今日行程名单</h3>
+        <p class="text-xs text-slate-400 font-semibold">Driver Daily Manifest</p>
+      </div>
+      <div class="space-y-3 mb-4">
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3">
+          <div class="text-xs font-bold text-amber-800 mb-1 flex items-center justify-between">
+            <span>🌅 去程 Outbound</span>
+            <span id="driver-out-count" class="bg-amber-200 px-2 py-0.5 rounded-md text-[10px]">0 人</span>
+          </div>
+          <div id="driver-out-names" class="text-sm font-bold text-slate-700">加载中...</div>
+        </div>
+        <div class="bg-sky-50 border border-sky-200 rounded-2xl p-3">
+          <div class="text-xs font-bold text-sky-800 mb-1 flex items-center justify-between">
+            <span>🌆 返程 Return</span>
+            <span id="driver-ret-count" class="bg-sky-200 px-2 py-0.5 rounded-md text-[10px]">0 人</span>
+          </div>
+          <div id="driver-ret-names" class="text-sm font-bold text-slate-700">加载中...</div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="copyDriverManifestText()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl text-xs transition active:scale-95 shadow-md flex items-center justify-center gap-1">
+          <span>📋 一键复制群通知文案</span>
+        </button>
+        <button onclick="closeModal('modal-driver-today')" class="px-4 py-3 theme-btn text-white font-bold rounded-2xl text-xs transition active:scale-95 shadow-md">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 我的预约行程弹窗（功能三：查看并一键取消） -->
+  <div id="modal-my-bookings" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 id="my-bookings-title" class="text-base font-bold text-slate-800">我的已预约行程</h3>
+        <button onclick="closeModal('modal-my-bookings')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-2.5">
+        <div id="my-bookings-list-container" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 精美确认取消弹窗 (Cancel Confirm Modal) - z-index 设为最高层 99 -->
+  <div id="modal-cancel-confirm" class="hidden fixed inset-0 z-[99] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-rose-100 text-center animate-in fade-in zoom-in duration-200">
+      <div class="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">⚠️</div>
+      <h3 class="text-base font-extrabold text-slate-800 mb-1">确认取消预约？</h3>
+      <p id="cancel-confirm-text" class="text-xs text-slate-500 font-semibold mb-4">您将取消该日期的共车行程。</p>
+      <div class="flex gap-2">
+        <button onclick="closeModal('modal-cancel-confirm')" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition active:scale-95">再想想</button>
+        <button onclick="executeCancelBooking()" class="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl text-xs transition active:scale-95 shadow-md">确认取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-passengers" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800">Manage Passengers</h3>
+        <button onclick="closeModal('modal-passengers')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Add Passenger</label>
+          <div class="flex gap-2">
+            <input id="input-new-passenger" type="text" placeholder="Enter name" class="flex-1 bg-white border border-rose-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-300">
+            <button onclick="handleAddPassenger()" class="px-3 py-1.5 rounded-xl font-bold text-xs theme-btn text-white transition">Add</button>
+          </div>
+        </div>
+        <div>
+          <div id="passengers-count-label" class="text-xs font-bold text-slate-500 mb-1.5">Added</div>
+          <div id="passengers-list-container" class="space-y-1.5 max-h-56 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-driverOff" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800">Driver Time Off</h3>
+        <button onclick="closeModal('modal-driverOff')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Add Day Off</label>
+          <input id="input-off-date" type="date" class="w-full bg-white border border-rose-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold mb-1.5">
+          <label class="block text-xs font-bold text-slate-600 mb-1">Reason (Optional)</label>
+          <input id="input-off-reason" type="text" placeholder="e.g., Personal leave, Sick leave" class="w-full bg-white border border-rose-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold mb-2">
+          <button onclick="handleAddDriverOff()" class="w-full py-2 rounded-xl font-bold text-xs theme-btn text-white transition">Add Time Off</button>
+        </div>
+        <div>
+          <div id="off-days-count-label" class="text-xs font-bold text-slate-500 mb-1.5">Driver Days Off</div>
+          <div id="off-days-list-container" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-reminders" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800">Reminder Settings</h3>
+        <button onclick="closeModal('modal-reminders')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-700">Enable Reminders</span>
+          <input type="checkbox" id="reminder-enable-cb" checked class="w-4 h-4 accent-rose-400 rounded cursor-pointer">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Outbound Departure Time</label>
+          <input type="time" value="06:00" class="bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 w-full">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Return Departure Time</label>
+          <input type="time" value="18:30" class="bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 w-full">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-filter" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800">Filter by Passenger</h3>
+        <button onclick="closeModal('modal-filter')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-2">
+        <button onclick="setPassengerFilter('ALL')" class="w-full flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold border-slate-100 hover:bg-slate-50 text-slate-700">
+          <span>All Passengers</span>
+        </button>
+        <div id="filter-passengers-grid" class="grid grid-cols-2 gap-1.5"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-search" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800">Search Reservations</h3>
+        <button onclick="closeModal('modal-search')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-3">
+        <input id="input-search-query" oninput="renderSearchResults()" type="text" placeholder="Search by name or date..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold">
+        <div id="search-results-list" class="max-h-56 overflow-y-auto space-y-1.5"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-theme" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800">设置 - 主题颜色</h3>
+        <button onclick="closeModal('modal-theme')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-center">
+        <button onclick="selectTheme('pink')" class="p-2.5 bg-pink-50 border-2 border-rose-400 rounded-2xl text-xs font-bold text-rose-700 flex flex-col items-center gap-1">
+          <span class="w-5 h-5 rounded-full bg-rose-400 inline-block"></span>
+          <span>Pink (柔粉)</span>
+        </button>
+        <button onclick="selectTheme('blue')" class="p-2.5 bg-sky-50 border-2 border-sky-400 rounded-2xl text-xs font-bold text-sky-700 flex flex-col items-center gap-1">
+          <span class="w-5 h-5 rounded-full bg-sky-500 inline-block"></span>
+          <span>Blue (天蓝)</span>
+        </button>
+        <button onclick="selectTheme('green')" class="p-2.5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl text-xs font-bold text-emerald-700 flex flex-col items-center gap-1">
+          <span class="w-5 h-5 rounded-full bg-emerald-500 inline-block"></span>
+          <span>Green (薄荷绿)</span>
+        </button>
+        <button onclick="selectTheme('purple')" class="p-2.5 bg-purple-50 border-2 border-purple-400 rounded-2xl text-xs font-bold text-purple-700 flex flex-col items-center gap-1">
+          <span class="w-5 h-5 rounded-full bg-purple-500 inline-block"></span>
+          <span>Purple (罗兰紫)</span>
+        </button>
+        <button onclick="selectTheme('orange')" class="p-2.5 bg-orange-50 border-2 border-orange-400 rounded-2xl text-xs font-bold text-orange-700 flex flex-col items-center gap-1">
+          <span class="w-5 h-5 rounded-full bg-orange-400 inline-block"></span>
+          <span>Orange (暖橙)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-single-booking" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 id="single-booking-date-title" class="text-base font-bold text-slate-800">预约行程</h3>
+        <button onclick="closeModal('modal-single-booking')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-1.5"><span id="single-outbound-header" class="text-xs font-bold text-amber-700">去程 Outbound (0/5)</span></div>
+          <div id="single-outbound-passengers" class="grid grid-cols-2 gap-1.5"></div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1.5"><span id="single-return-header" class="text-xs font-bold text-sky-700">返程 Return (0/5)</span></div>
+          <div id="single-return-passengers" class="grid grid-cols-2 gap-1.5"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-multi-confirm" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3 pb-1.5 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800">Multi-Day Booking</h3>
+        <button onclick="closeModal('modal-multi-confirm')" class="p-1 rounded-full bg-rose-50 text-rose-400 hover:bg-rose-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+      </div>
+      <div class="space-y-3">
+        <div id="multi-selected-dates-header" class="text-xs font-bold text-slate-800"></div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 mb-1">Select Passengers</label>
+          <label class="flex items-center gap-2 py-1 text-xs font-bold text-slate-700 cursor-pointer">
+            <input id="cb-multi-select-all" type="checkbox" onchange="toggleSelectAllMultiPassengers(this.checked)" class="w-3.5 h-3.5 accent-rose-400 rounded">
+            <span>Select All</span>
+          </label>
+          <div id="multi-passengers-checkboxes" class="space-y-1 mt-0.5 max-h-40 overflow-y-auto pr-1"></div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-0.5">Add Temporary Passenger</label>
+          <input id="input-temp-passenger" type="text" placeholder="Enter name (optional)" class="w-full bg-slate-50 border border-rose-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Trip Type</label>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button id="trip-btn-outbound" onclick="setMultiTripType('Outbound Only')" class="py-2 px-1 rounded-xl border text-[11px] font-bold text-center bg-white border-slate-200">Outbound<br>Only</button>
+            <button id="trip-btn-return" onclick="setMultiTripType('Return Only')" class="py-2 px-1 rounded-xl border text-[11px] font-bold text-center bg-white border-slate-200">Return Only</button>
+            <button id="trip-btn-round" onclick="setMultiTripType('Round Trip')" class="py-2 px-1 rounded-xl border text-[11px] font-bold text-center bg-white border-slate-200">Round Trip</button>
+          </div>
+        </div>
+        <button onclick="confirmMultiBookingSubmit()" class="w-full py-2.5 theme-btn text-white font-bold rounded-xl text-xs transition active:scale-95">Confirm Booking</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC SCRIPT -->
+  <script>
+    let currentThemeKey = 'pink';
+    const THEMES = {
+      pink: { bg: 'bg-pink-50/50', btn: 'bg-rose-400 hover:bg-rose-500 border-rose-400', text: 'text-rose-400', badgeSelected: 'bg-rose-300 border-rose-400', btnLight: 'bg-rose-50 border-rose-300 text-rose-500' },
+      blue: { bg: 'bg-sky-50/50', btn: 'bg-sky-500 hover:bg-sky-600 border-sky-500', text: 'text-sky-500', badgeSelected: 'bg-sky-300 border-rose-400', btnLight: 'bg-sky-50 border-sky-300 text-sky-600' },
+      green: { bg: 'bg-emerald-50/50', btn: 'bg-emerald-500 hover:bg-emerald-600 border-emerald-500', text: 'text-emerald-500', badgeSelected: 'bg-emerald-300 border-emerald-400', btnLight: 'bg-emerald-50 border-emerald-300 text-emerald-600' },
+      purple: { bg: 'bg-purple-50/50', btn: 'bg-purple-500 hover:bg-purple-600 border-purple-500', text: 'text-purple-500', badgeSelected: 'bg-purple-300 border-purple-400', btnLight: 'bg-purple-50 border-purple-300 text-purple-600' },
+      orange: { bg: 'bg-orange-50/50', btn: 'bg-orange-400 hover:bg-orange-500 border-orange-400', text: 'text-orange-400', badgeSelected: 'bg-orange-300 border-orange-400', btnLight: 'bg-orange-50 border-orange-300 text-orange-600' }
+    };
+
+    function selectTheme(key) {
+      if (!THEMES[key]) return;
+      currentThemeKey = key;
+      applyThemeStyles();
+      closeModal('modal-theme');
+    }
+
+    function applyThemeStyles() {
+      const t = THEMES[currentThemeKey];
+      document.getElementById('app-body').className = `${t.bg} text-slate-800 pb-4 min-h-screen select-none transition-colors duration-300`;
+      
+      document.querySelectorAll('.theme-btn').forEach(el => {
+        el.className = el.className.replace(/bg-\w+-\d+/g, '').replace(/hover:bg-\w+-\d+/g, '');
+        el.classList.add(...t.btn.split(' '));
+      });
+      document.querySelectorAll('.theme-text').forEach(el => {
+        el.className = el.className.replace(/text-\w+-\d+/g, '');
+        el.classList.add(t.text);
+      });
+      document.querySelectorAll('.theme-badge-selected').forEach(el => {
+        el.className = el.className.replace(/bg-\w+-\d+/g, '').replace(/border-\w+-\d+/g, '');
+        el.classList.add(...t.badgeSelected.split(' '));
+      });
+      renderCalendar();
+    }
+
+    let currentUserRole = localStorage.getItem('carpool_user_role') || 'Evelyn';
+
+    function setUserRole(role) {
+      currentUserRole = role;
+      localStorage.setItem('carpool_user_role', role);
+      document.getElementById('display-user-role').innerText = role;
+      closeModal('modal-identity');
+      renderIdentityModalOptions();
+      
+      if (role === 'Driver') {
+        checkAndShowDriverTodayPopup();
+      } else {
+        alert(`已绑定身份为: ${role}。今后预约时将自动勾选您的名字！`);
+      }
+    }
+
+    function renderIdentityModalOptions() {
+      const driverBtn = document.getElementById('btn-role-driver');
+      const driverCheck = document.getElementById('check-driver');
+      
+      if (currentUserRole === 'Driver') {
+        driverBtn.className = "w-full p-3 rounded-2xl border-2 border-rose-400 bg-rose-50 text-rose-700 font-bold text-sm flex items-center justify-between";
+        driverCheck.classList.remove('hidden');
+      } else {
+        driverBtn.className = "w-full p-3 rounded-2xl border border-slate-200 bg-white text-slate-700 font-bold text-sm flex items-center justify-between hover:bg-slate-50";
+        driverCheck.classList.add('hidden');
+      }
+
+      const grid = document.getElementById('identity-passengers-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      passengers.forEach(p => {
+        const isSel = currentUserRole === p;
+        grid.innerHTML += `<button onclick="setUserRole('${p}')" class="p-2 rounded-xl border text-xs font-bold text-left truncate ${isSel ? 'bg-rose-50 border-2 border-rose-400 text-rose-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}">${p} ${isSel ? '✓' : ''}</button>`;
+      });
+    }
+
+    function checkAndShowDriverTodayPopup() {
+      if (currentUserRole !== 'Driver') return;
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const todayKey = `${y}-${m}-${d}`;
+
+      document.getElementById('driver-popup-date-title').innerText = `今日行程名单 (${todayKey})`;
+      
+      const dayRes = reservations[todayKey] || { out: [], ret: [] };
+      const outList = dayRes.out || [];
+      const retList = dayRes.ret || [];
+
+      document.getElementById('driver-out-count').innerText = `${outList.length}/5 人`;
+      document.getElementById('driver-out-names').innerText = outList.length > 0 ? outList.join(', ') : '暂无乘客预约';
+
+      document.getElementById('driver-ret-count').innerText = `${retList.length}/5 人`;
+      document.getElementById('driver-ret-names').innerText = retList.length > 0 ? retList.join(', ') : '暂无乘客预约';
+
+      openModal('modal-driver-today');
+    }
+
+    function copyDriverManifestText() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const todayKey = `${y}-${m}-${d}`;
+
+      const dayRes = reservations[todayKey] || { out: [], ret: [] };
+      const outList = dayRes.out || [];
+      const retList = dayRes.ret || [];
+
+      const text = `🚗【共车行程通知】${todayKey}\n🌅 去程 (${outList.length}/5)：${outList.length > 0 ? outList.join(', ') : '暂无'}\n🌆 返程 (${retList.length}/5)：${retList.length > 0 ? retList.join(', ') : '暂无'}\n请大家核对行程，祝一路顺风！`;
+
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert("已成功复制群通知文案到剪贴板！可以直接粘贴到微信或 WhatsApp 了。");
+      } catch (err) {
+        alert("复制失败，请手动长按复制。");
+      }
+      document.body.removeChild(textArea);
+    }
+
+    function openMyBookingsModal() {
+      if (currentUserRole === 'Driver') {
+        alert("您当前身份是司机 (Driver)。如需查看乘客个人行程，请点击左上角切换为乘客身份。");
+        return;
+      }
+      document.getElementById('my-bookings-title').innerText = `我的已预约行程 (${currentUserRole})`;
+      renderMyBookingsList();
+      openModal('modal-my-bookings');
+    }
+
+    function renderMyBookingsList() {
+      const container = document.getElementById('my-bookings-list-container');
+      container.innerHTML = '';
+      
+      let bookedCount = 0;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      Object.keys(reservations).sort().forEach(dateKey => {
+        if (dateKey < todayStr) return;
+        const dayRes = reservations[dateKey];
+        if (!dayRes) return;
+        const inOut = dayRes.out && dayRes.out.includes(currentUserRole);
+        const inRet = dayRes.ret && dayRes.ret.includes(currentUserRole);
+
+        if (inOut || inRet) {
+          bookedCount++;
+          let tripDesc = [];
+          if (inOut) tripDesc.push("去程");
+          if (inRet) tripDesc.push("返程");
+
+          const item = document.createElement('div');
+          item.className = "bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center justify-between";
+          item.innerHTML = `
+            <div>
+              <div class="text-xs font-extrabold text-slate-800">${dateKey}</div>
+              <div class="text-[11px] font-bold text-rose-500 mt-0.5">已预约: ${tripDesc.join(' & ')}</div>
+            </div>
+            <button onclick="promptCancelBooking('${dateKey}')" class="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-xl text-xs transition active:scale-95">取消预约</button>
+          `;
+          container.appendChild(item);
+        }
+      });
+
+      if (bookedCount === 0) {
+        container.innerHTML = `<div class="text-center py-6 text-xs text-slate-400 font-bold">您近期还没有任何行程预约</div>`;
+      }
+    }
+
+    let pendingCancelDate = null;
+    function promptCancelBooking(dateKey) {
+      pendingCancelDate = dateKey;
+      document.getElementById('cancel-confirm-text').innerText = `您将取消 ${dateKey} 的共车行程。`;
+      openModal('modal-cancel-confirm');
+    }
+
+    async function executeCancelBooking() {
+      if (!pendingCancelDate) return;
+      const dateKey = pendingCancelDate;
+      closeModal('modal-cancel-confirm');
+
+      const dayRes = reservations[dateKey] || { out: [], ret: [] };
+      let outList = (dayRes.out || []).filter(p => p !== currentUserRole);
+      let retList = (dayRes.ret || []).filter(p => p !== currentUserRole);
+
+      reservations[dateKey] = { out: outList, ret: retList };
+      
+      if (db) {
+        try {
+          await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('reservations').doc(dateKey).set(reservations[dateKey]);
+        } catch(e) {}
+      }
+      
+      pendingCancelDate = null;
+      renderMyBookingsList();
+      renderCalendar();
+    }
+
+    const _now = new Date();
+    let currentYear = _now.getFullYear();
+    let currentMonth = _now.getMonth();
+
+    let isMultiSelectingMode = false;
+    let selectedMultiDates = [];
+    let selectedFilterPassenger = 'ALL';
+    let selectedMultiPassengers = [];
+    let selectedMultiTripType = 'Round Trip';
+    let activeSingleDayKey = null;
+
+    let passengers = ['Evelyn', 'Joveal', 'MsPang', 'Peiwen', 'June', 'YingYing', 'Jessie', 'WenHui', 'Kent'];
+    let driverOffDays = {}; 
+    let reservations = {}; 
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    const RAW_SG_HOLIDAYS = {
+      '2025-01-01': 'New Year', '2025-01-29': 'CNY', '2025-01-30': 'CNY', '2025-03-31': 'Hari Raya', '2025-04-18': 'Good Friday', '2025-05-01': 'Labour Day', '2025-05-12': 'Vesak Day', '2025-06-07': 'Hari Raya Haji', '2025-08-09': 'National', '2025-10-20': 'Deepavali', '2025-12-25': 'Christmas',
+      '2026-01-01': 'New Year', '2026-02-17': 'CNY', '2026-02-18': 'CNY', '2026-03-20': 'Hari Raya', '2026-04-03': 'Good Friday', '2026-05-01': 'Labour Day', '2026-05-27': 'Hari Raya Haji', '2026-05-31': 'Vesak Day', '2026-08-09': 'National', '2026-11-08': 'Deepavali', '2026-12-25': 'Christmas',
+      '2027-01-01': 'New Year', '2027-02-06': 'CNY', '2027-02-07': 'CNY Day 2', '2027-03-10': 'Hari Raya', '2027-03-26': 'Good Friday', '2027-05-01': 'Labour Day', '2027-05-16': 'Hari Raya Haji', '2027-05-20': 'Vesak Day', '2027-08-09': 'National', '2027-10-29': 'Deepavali', '2027-12-25': 'Christmas',
+      '2028-01-01': 'New Year', '2028-01-26': 'CNY', '2028-01-27': 'CNY', '2028-02-27': 'Hari Raya', '2028-04-14': 'Good Friday', '2028-05-01': 'Labour Day', '2028-05-05': 'Hari Raya Haji', '2028-05-08': 'Vesak Day', '2028-08-09': 'National', '2028-10-17': 'Deepavali', '2028-12-25': 'Christmas'
+    };
+
+    const SG_HOLIDAYS_WITH_LIEU = (() => {
+      const map = { ...RAW_SG_HOLIDAYS };
+      Object.entries(RAW_SG_HOLIDAYS).forEach(([dStr, name]) => {
+        const [y, m, d] = dStr.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        if (dateObj.getDay() === 0) { 
+          const nextDay = new Date(y, m - 1, d + 1);
+          const nextKey = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+          if (!map[nextKey]) map[nextKey] = `${name} (Lieu)`;
+        }
+      });
+      return map;
+    })();
+
+    let db = null;
+    let appId = 'carpool-reservation-app';
+    try {
+      if (typeof __firebase_config !== 'undefined') {
+        const firebaseConfig = JSON.parse(__firebase_config);
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        if (typeof __app_id !== 'undefined') appId = __app_id;
+        
+        firebase.auth().signInAnonymously().then(() => {
+          setupRealtimeSync();
+        }).catch(() => setupRealtimeSync());
+      }
+    } catch (e) {}
+
+    function setupRealtimeSync() {
+      if (!db) return;
+      db.collection('artifacts').doc(appId).collection('public').doc('data').collection('reservations')
+        .onSnapshot(snapshot => {
+          snapshot.forEach(doc => { reservations[doc.id] = doc.data(); });
+          renderCalendar();
+        });
+      db.collection('artifacts').doc(appId).collection('public').doc('data').collection('passengers')
+        .onSnapshot(snapshot => {
+          if (!snapshot.empty) {
+            passengers = [];
+            snapshot.forEach(doc => passengers.push(doc.data().name));
+            renderPassengersList();
+            renderIdentityModalOptions();
+          }
+        });
+      db.collection('artifacts').doc(appId).collection('public').doc('data').collection('driver_off')
+        .onSnapshot(snapshot => {
+          driverOffDays = {};
+          snapshot.forEach(doc => { driverOffDays[doc.id] = doc.data().reason || 'Driver Off'; });
+          renderCalendar();
+        });
+    }
+
+    async function saveData(col, id, data) {
+      if (db) {
+        try {
+          await db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col).doc(id).set(data);
+        } catch(e){}
+      }
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const monthLabel = document.getElementById('current-month-label');
+      if (monthLabel) {
+        monthLabel.innerText = `${monthNames[currentMonth]} ${currentYear}`;
+      }
+      
+      const grid = document.getElementById('calendar-days-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      const firstDayIdx = new Date(currentYear, currentMonth, 1).getDay();
+      const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+      for (let i = 0; i < firstDayIdx; i++) {
+        grid.appendChild(createEmptyCell());
+      }
+
+      for (let d = 1; d <= totalDays; d++) {
+        const dateObj = new Date(currentYear, currentMonth, d);
+        const yStr = dateObj.getFullYear();
+        const mStr = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dStr = String(d).padStart(2, '0');
+        const dateKey = `${yStr}-${mStr}-${dStr}`;
+        const dayOfWeek = dateObj.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const holidayName = SG_HOLIDAYS_WITH_LIEU[dateKey] || null;
+        const isDriverOff = !!driverOffDays[dateKey];
+
+        const dayRes = reservations[dateKey] || { out: [], ret: [] };
+        const outCount = dayRes.out ? dayRes.out.length : 0;
+        const retCount = dayRes.ret ? dayRes.ret.length : 0;
+        const isOutFull = outCount >= 5;
+        const isRetFull = retCount >= 5;
+        const isFullyBooked = isOutFull && isRetFull;
+        const isSelectedInMulti = selectedMultiDates.includes(dateKey);
+
+        const isNotBookable = isWeekend || !!holidayName || isDriverOff;
+        const themeSelectedClass = THEMES[currentThemeKey].badgeSelected;
+
+        let cellBg = "bg-white border-slate-100";
+        if (isSelectedInMulti) {
+          cellBg = `${themeSelectedClass} text-slate-800 shadow-2xs border-1.5`;
+        } else if (!isNotBookable) {
+          if (isFullyBooked) cellBg = "bg-rose-200/90 border-1.5 border-rose-300 text-slate-800";
+          else if (isOutFull) cellBg = "bg-amber-100/80 border-1.5 border-amber-300 text-slate-800";
+          else if (isRetFull) cellBg = "bg-sky-100/80 border-1.5 border-sky-300 text-slate-800";
+        }
+
+        const cell = document.createElement('div');
+        cell.className = `min-h-[72px] sm:min-h-[96px] rounded-xl p-1 sm:p-1.5 border transition-all duration-150 flex flex-col justify-between select-none relative overflow-hidden ${cellBg} ${isNotBookable ? 'bg-slate-50/50 border-slate-100 opacity-60 cursor-not-allowed' : 'hover:shadow-2xs cursor-pointer'}`;
+        
+        cell.onclick = () => handleCellClick(dateKey, isNotBookable);
+
+        let cellHTML = `<div><div class="flex items-center justify-between"><span class="text-[11px] sm:text-xs font-bold leading-none ${isNotBookable ? 'text-slate-400' : 'text-slate-700'}">${d}</span>`;
+        if (holidayName) {
+          cellHTML += `<span class="text-[7.5px] sm:text-[8.5px] font-bold text-rose-500 bg-rose-50/90 px-0.5 py-0.2 rounded-xs truncate max-w-[42px] sm:max-w-[58px] leading-tight">${holidayName}</span>`;
+        }
+        cellHTML += `</div>`;
+
+        if (!isWeekend && isDriverOff) {
+          cellHTML += `<div class="mt-1 text-center py-0.5 bg-slate-100 rounded-md text-[9px] font-bold text-slate-400">Driver Off</div>`;
+        } else if (!isNotBookable) {
+          cellHTML += `<div class="mt-1 text-[8.5px] sm:text-[10px] font-bold leading-none flex flex-col sm:flex-row sm:gap-1 text-slate-400">
+            <span class="${isOutFull ? 'text-amber-700 font-extrabold' : ''}">Out ${outCount}/5</span>
+            <span class="${isRetFull ? 'text-rose-500 font-extrabold' : ''}">Ret ${retCount}/5</span>
+          </div>`;
+        }
+        cellHTML += `</div>`;
+
+        if (!isNotBookable) {
+          cellHTML += `<div class="mt-1 space-y-0.5 overflow-hidden flex flex-col justify-end">`;
+          let outFiltered = dayRes.out || [];
+          let retFiltered = dayRes.ret || [];
+          if (selectedFilterPassenger !== 'ALL') {
+            outFiltered = outFiltered.filter(p => p === selectedFilterPassenger);
+            retFiltered = retFiltered.filter(p => p === selectedFilterPassenger);
+          }
+          outFiltered.forEach(p => { cellHTML += `<div class="text-[9px] sm:text-[10px] font-bold text-amber-600 truncate leading-tight">${p}</div>`; });
+          retFiltered.forEach(p => { cellHTML += `<div class="text-[9px] sm:text-[10px] font-bold text-sky-600 truncate leading-tight">${p}</div>`; });
+          cellHTML += `</div>`;
+        }
+
+        cell.innerHTML = cellHTML;
+        grid.appendChild(cell);
+      }
+    }
+
+    function createEmptyCell() {
+      const el = document.createElement('div');
+      el.className = "min-h-[72px] sm:min-h-[96px] rounded-xl bg-slate-50/15";
+      return el;
+    }
+
+    function changeMonth(delta) {
+      currentMonth += delta;
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      renderCalendar();
+    }
+
+    function handleCellClick(dateKey, isNotBookable) {
+      if (isNotBookable) return;
+      if (isMultiSelectingMode) {
+        if (selectedMultiDates.includes(dateKey)) {
+          selectedMultiDates = selectedMultiDates.filter(d => d !== dateKey);
+        } else {
+          selectedMultiDates.push(dateKey);
+        }
+        updateMultiDaysBtnUI();
+        renderCalendar();
+      } else {
+        openSingleDayBookingModal(dateKey);
+      }
+    }
+
+    function toggleMultiSelectMode(enable) {
+      isMultiSelectingMode = enable;
+      selectedMultiDates = [];
+      document.getElementById('btn-start-multi').classList.toggle('hidden', enable);
+      document.getElementById('multi-selecting-actions').classList.toggle('hidden', !enable);
+      
+      if (enable && currentUserRole !== 'Driver') {
+        selectedMultiPassengers = [currentUserRole];
+      } else {
+        selectedMultiPassengers = [];
+      }
+
+      updateMultiDaysBtnUI();
+      renderCalendar();
+    }
+
+    function updateMultiDaysBtnUI() {
+      const btn = document.getElementById('btn-book-selected-days');
+      if (selectedMultiDates.length > 0) {
+        btn.classList.remove('hidden');
+        document.getElementById('multi-days-count-label').innerText = `Book ${selectedMultiDates.length} ${selectedMultiDates.length === 1 ? 'Day' : 'Days'}`;
+      } else {
+        btn.classList.add('hidden');
+      }
+    }
+
+    function openMultiBookingConfirmModal() {
+      if (selectedMultiDates.length === 0) return;
+      
+      if (selectedMultiPassengers.length === 0 && currentUserRole !== 'Driver') {
+        selectedMultiPassengers = [currentUserRole];
+      }
+
+      const formattedHeader = selectedMultiDates.sort().map(dStr => {
+        const parts = dStr.split('-');
+        return `${monthNames[parseInt(parts[1], 10) - 1].substring(0, 3)} ${parseInt(parts[2], 10)}`;
+      }).join(' ');
+      document.getElementById('multi-selected-dates-header').innerText = formattedHeader;
+      renderMultiPassengersCheckboxes();
+      
+      setMultiTripType('Round Trip');
+      openModal('modal-multi-confirm');
+    }
+
+    function renderMultiPassengersCheckboxes() {
+      const container = document.getElementById('multi-passengers-checkboxes');
+      container.innerHTML = '';
+      passengers.forEach(p => {
+        const isChecked = selectedMultiPassengers.includes(p);
+        const label = document.createElement('label');
+        label.className = "flex items-center gap-2 py-0.5 text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 px-1 rounded-md";
+        label.innerHTML = `<input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleMultiPassenger('${p}', this.checked)" class="w-3.5 h-3.5 accent-rose-400 rounded"><span>${p} ${p === currentUserRole ? '(我)' : ''}</span>`;
+        container.appendChild(label);
+      });
+      document.getElementById('cb-multi-select-all').checked = selectedMultiPassengers.length === passengers.length;
+    }
+
+    function toggleMultiPassenger(pName, checked) {
+      if (checked) { if (!selectedMultiPassengers.includes(pName)) selectedMultiPassengers.push(pName); }
+      else { selectedMultiPassengers = selectedMultiPassengers.filter(item => item !== pName); }
+      document.getElementById('cb-multi-select-all').checked = selectedMultiPassengers.length === passengers.length;
+    }
+
+    function toggleSelectAllMultiPassengers(checked) {
+      if (checked) selectedMultiPassengers = [...passengers];
+      else selectedMultiPassengers = [];
+      renderMultiPassengersCheckboxes();
+    }
+
+    function setMultiTripType(type) {
+      selectedMultiTripType = type;
+      const t = THEMES[currentThemeKey];
+      
+      const btnOut = document.getElementById('trip-btn-outbound');
+      const btnRet = document.getElementById('trip-btn-return');
+      const btnRound = document.getElementById('trip-btn-round');
+
+      btnOut.className = `py-2 px-1 rounded-xl border text-[11px] font-bold text-center ${type === 'Outbound Only' ? t.btnLight + ' border-2' : 'bg-white border-slate-200 text-slate-700'}`;
+      btnRet.className = `py-2 px-1 rounded-xl border text-[11px] font-bold text-center ${type === 'Return Only' ? t.btnLight + ' border-2' : 'bg-white border-slate-200 text-slate-700'}`;
+      btnRound.className = `py-2 px-1 rounded-xl border text-[11px] font-bold text-center ${type === 'Round Trip' ? t.btnLight + ' border-2' : 'bg-white border-slate-200 text-slate-700'}`;
+    }
+
+    async function confirmMultiBookingSubmit() {
+      const tempName = document.getElementById('input-temp-passenger').value.trim();
+      if (tempName) {
+        if (!selectedMultiPassengers.includes(tempName)) selectedMultiPassengers.push(tempName);
+        if (!passengers.includes(tempName)) {
+          passengers.push(tempName);
+          saveData('passengers', tempName, { name: tempName });
+        }
+      }
+      if (selectedMultiPassengers.length === 0) {
+        alert("请至少选择或输入一名乘客！");
+        return;
+      }
+      const doOut = selectedMultiTripType === 'Outbound Only' || selectedMultiTripType === 'Round Trip';
+      const doRet = selectedMultiTripType === 'Return Only' || selectedMultiTripType === 'Round Trip';
+      for (const dKey of selectedMultiDates) {
+        const cur = reservations[dKey] || { out: [], ret: [] };
+        let outList = [...(cur.out || [])];
+        let retList = [...(cur.ret || [])];
+        selectedMultiPassengers.forEach(p => {
+          if (doOut && !outList.includes(p) && outList.length < 5) outList.push(p);
+          if (doRet && !retList.includes(p) && retList.length < 5) retList.push(p);
+        });
+        reservations[dKey] = { out: outList, ret: retList };
+        saveData('reservations', dKey, reservations[dKey]);
+      }
+      closeModal('modal-multi-confirm');
+      toggleMultiSelectMode(false);
+      renderCalendar();
+    }
+
+    function openSingleDayBookingModal(dateKey) {
+      activeSingleDayKey = dateKey;
+      document.getElementById('single-booking-date-title').innerText = `预约行程: ${dateKey}`;
+      renderSingleBookingModalContent();
+      openModal('modal-single-booking');
+    }
+
+    function renderSingleBookingModalContent() {
+      if (!activeSingleDayKey) return;
+      const dayRes = reservations[activeSingleDayKey] || { out: [], ret: [] };
+      const outList = dayRes.out || [];
+      const retList = dayRes.ret || [];
+      document.getElementById('single-outbound-header').innerText = `去程 Outbound (${outList.length}/5)`;
+      document.getElementById('single-return-header').innerText = `返程 Return (${retList.length}/5)`;
+      const outContainer = document.getElementById('single-outbound-passengers');
+      const retContainer = document.getElementById('single-return-passengers');
+      outContainer.innerHTML = '';
+      retContainer.innerHTML = '';
+      passengers.forEach(p => {
+        const isOutChecked = outList.includes(p);
+        const isRetChecked = retList.includes(p);
+        const labelExtra = p === currentUserRole ? ' (我)' : '';
+
+        outContainer.innerHTML += `<button onclick="toggleSingleBooking('${p}', 'out')" class="flex items-center justify-between p-2 rounded-xl border text-xs font-bold ${isOutChecked ? 'bg-amber-100 border-amber-400 text-amber-900' : 'bg-slate-50 border-slate-100 text-slate-600'}"><span>${p}${labelExtra}</span>${isOutChecked ? '✓' : ''}</button>`;
+        retContainer.innerHTML += `<button onclick="toggleSingleBooking('${p}', 'ret')" class="flex items-center justify-between p-2 rounded-xl border text-xs font-bold ${isRetChecked ? 'bg-sky-100 border-sky-400 text-sky-900' : 'bg-slate-50 border-slate-100 text-slate-600'}"><span>${p}${labelExtra}</span>${isRetChecked ? '✓' : ''}</button>`;
+      });
+    }
+
+    function toggleSingleBooking(pName, tripType) {
+      if (!activeSingleDayKey) return;
+      const dayRes = reservations[activeSingleDayKey] || { out: [], ret: [] };
+      let list = [...(dayRes[tripType] || [])];
+      const idx = list.indexOf(pName);
+      if (idx > -1) {
+        list.splice(idx, 1);
+      } else {
+        if (list.length >= 5) { alert("人数已满5人！"); return; }
+        list.push(pName);
+      }
+      reservations[activeSingleDayKey] = { ...dayRes, [tripType]: list };
+      saveData('reservations', activeSingleDayKey, reservations[activeSingleDayKey]);
+      renderSingleBookingModalContent();
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      if (id === 'modal-passengers') renderPassengersList();
+      else if (id === 'modal-driverOff') renderOffDaysList();
+      else if (id === 'modal-filter') renderFilterPassengersGrid();
+      else if (id === 'modal-identity') renderIdentityModalOptions();
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function renderPassengersList() {
+      const container = document.getElementById('passengers-list-container');
+      document.getElementById('passengers-count-label').innerText = `Added (${passengers.length})`;
+      container.innerHTML = '';
+      passengers.forEach(p => {
+        container.innerHTML += `<div class="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100"><span class="text-xs font-bold text-slate-700">${p}</span><button onclick="removePassenger('${p}')" class="text-slate-400 hover:text-rose-500">✕</button></div>`;
+      });
+    }
+
+    function handleAddPassenger() {
+      const input = document.getElementById('input-new-passenger');
+      const val = input.value.trim();
+      if (val && !passengers.includes(val)) {
+        passengers.push(val);
+        saveData('passengers', val, { name: val });
+        input.value = '';
+        renderPassengersList();
+        renderIdentityModalOptions();
+      }
+    }
+
+    function removePassenger(pName) {
+      passengers = passengers.filter(p => p !== pName);
+      if (db) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('passengers').doc(pName).delete();
+      renderPassengersList();
+      renderIdentityModalOptions();
+    }
+
+    function renderOffDaysList() {
+      const container = document.getElementById('off-days-list-container');
+      const keys = Object.keys(driverOffDays);
+      document.getElementById('off-days-count-label').innerText = `Driver Days Off (${keys.length})`;
+      container.innerHTML = '';
+      keys.forEach(k => {
+        container.innerHTML += `<div class="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100"><div><div class="text-xs font-bold text-slate-700">${k} Driver Off</div><div class="text-[11px] text-slate-400">${driverOffDays[k]}</div></div><button onclick="removeDriverOff('${k}')" class="text-slate-400 hover:text-rose-500">✕</button></div>`;
+      });
+    }
+
+    function handleAddDriverOff() {
+      const dateVal = document.getElementById('input-off-date').value;
+      const reasonVal = document.getElementById('input-off-reason').value.trim() || 'Driver Off';
+      if (dateVal) {
+        driverOffDays[dateVal] = reasonVal;
+        saveData('driver_off', dateVal, { reason: reasonVal });
+        document.getElementById('input-off-date').value = '';
+        document.getElementById('input-off-reason').value = '';
+        renderOffDaysList();
+      }
+    }
+
+    function removeDriverOff(dateKey) {
+      delete driverOffDays[dateKey];
+      if (db) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('driver_off').doc(dateKey).delete();
+      renderOffDaysList();
+    }
+
+    function renderFilterPassengersGrid() {
+      const container = document.getElementById('filter-passengers-grid');
+      container.innerHTML = '';
+      passengers.forEach(p => {
+        const isSel = selectedFilterPassenger === p;
+        container.innerHTML += `<button onclick="setPassengerFilter('${p}')" class="flex items-center gap-2 p-2 rounded-xl border text-xs font-bold ${isSel ? 'bg-rose-50 border-rose-300 text-rose-700' : 'border-slate-100 text-slate-700'}"><span class="truncate">${p}</span></button>`;
+      });
+    }
+
+    function setPassengerFilter(pName) {
+      selectedFilterPassenger = pName;
+      const banner = document.getElementById('filter-banner');
+      if (pName !== 'ALL') {
+        banner.classList.remove('hidden');
+        document.getElementById('filter-passenger-name').innerText = pName;
+      } else {
+        banner.classList.add('hidden');
+      }
+      closeModal('modal-filter');
+      renderCalendar();
+    }
+
+    function clearFilter() { setPassengerFilter('ALL'); }
+
+    function renderSearchResults() {
+      const q = document.getElementById('input-search-query').value.trim().toLowerCase();
+      const container = document.getElementById('search-results-list');
+      container.innerHTML = '';
+      if (!q) return;
+      Object.keys(reservations).forEach(dKey => {
+        const res = reservations[dKey];
+        const names = [...(res.out || []), ...(res.ret || [])];
+        if (dKey.includes(q) || names.some(n => n.toLowerCase().includes(q))) {
+          container.innerHTML += `<div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs"><div class="font-bold text-slate-700">${dKey}</div><div class="text-amber-700 font-semibold">Out: ${res.out?.join(', ') || 'None'}</div><div class="text-sky-700 font-semibold">Ret: ${res.ret?.join(', ') || 'None'}</div></div>`;
+        }
+      });
+    }
+
+    window.onload = function() {
+      applyThemeStyles();
+      
+      if (!localStorage.getItem('carpool_user_role')) {
+        currentUserRole = 'Evelyn';
+        localStorage.setItem('carpool_user_role', 'Evelyn');
+        setTimeout(() => openModal('modal-identity'), 400);
+      }
+
+      const roleEl = document.getElementById('display-user-role');
+      if (roleEl) roleEl.innerText = currentUserRole;
+      renderCalendar();
+      
+      if (currentUserRole === 'Driver') {
+        setTimeout(checkAndShowDriverTodayPopup, 500);
+      }
+    };
+  </script>
+</body>
+</html>
